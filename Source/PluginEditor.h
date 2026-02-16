@@ -10,6 +10,7 @@ class SettingsOverlay : public juce::Component
 {
 public:
     SettingsOverlay (MPSDrumMachineProcessor& proc);
+    ~SettingsOverlay() override;
     void paint (juce::Graphics& g) override;
     void resized() override;
 
@@ -25,11 +26,15 @@ private:
     juce::ComboBox navChannelBox;
     juce::Label prevCCLabel;
     juce::ComboBox prevCCBox;
+    juce::TextButton prevLearnButton { "Learn" };
     juce::Label nextCCLabel;
     juce::ComboBox nextCCBox;
+    juce::TextButton nextLearnButton { "Learn" };
     juce::TextButton scanButton { "Scan Library" };
     juce::TextButton closeButton { "Close" };
     juce::TextButton savePresetButton { "Save Preset..." };
+
+    void updateLearnButtonStates();
 };
 
 class MPSDrumMachineEditor : public juce::AudioProcessorEditor,

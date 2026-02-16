@@ -83,6 +83,17 @@ SettingsOverlay::SettingsOverlay (MPSDrumMachineProcessor& proc) : processor (pr
     };
     addAndMakeVisible (prevCCBox);
 
+    prevLearnButton.onClick = [this]
+    {
+        auto& mm = processor.getMidiMapper();
+        if (mm.getLearnTarget() == MidiMapper::LearnTarget::Prev)
+            mm.cancelLearn();
+        else
+            mm.startLearn (MidiMapper::LearnTarget::Prev);
+        updateLearnButtonStates();
+    };
+    addAndMakeVisible (prevLearnButton);
+
     nextCCLabel.setText ("Next CC Number:", juce::dontSendNotification);
     nextCCLabel.setColour (juce::Label::textColourId, DarkLookAndFeel::textDim);
     addAndMakeVisible (nextCCLabel);
@@ -95,6 +106,32 @@ SettingsOverlay::SettingsOverlay (MPSDrumMachineProcessor& proc) : processor (pr
         processor.getMidiMapper().setNextCCNumber (nextCCBox.getSelectedId() - 1);
     };
     addAndMakeVisible (nextCCBox);
+
+    nextLearnButton.onClick = [this]
+    {
+        auto& mm = processor.getMidiMapper();
+        if (mm.getLearnTarget() == MidiMapper::LearnTarget::Next)
+            mm.cancelLearn();
+        else
+            mm.startLearn (MidiMapper::LearnTarget::Next);
+        updateLearnButtonStates();
+    };
+    addAndMakeVisible (nextLearnButton);
+
+    processor.getMidiMapper().onLearnComplete =
+        [safeThis = juce::Component::SafePointer<SettingsOverlay> (this)]
+        (MidiMapper::LearnTarget target, int cc)
+    {
+        if (safeThis == nullptr)
+            return;
+
+        if (target == MidiMapper::LearnTarget::Prev)
+            safeThis->prevCCBox.setSelectedId (cc + 1, juce::sendNotification);
+        else if (target == MidiMapper::LearnTarget::Next)
+            safeThis->nextCCBox.setSelectedId (cc + 1, juce::sendNotification);
+
+        safeThis->updateLearnButtonStates();
+    };
 
     scanButton.onClick = [this]
     {
@@ -152,6 +189,35 @@ SettingsOverlay::SettingsOverlay (MPSDrumMachineProcessor& proc) : processor (pr
     addAndMakeVisible (savePresetButton);
 }
 
+SettingsOverlay::~SettingsOverlay()
+{
+    processor.getMidiMapper().cancelLearn();
+    processor.getMidiMapper().onLearnComplete = nullptr;
+}
+
+void SettingsOverlay::updateLearnButtonStates()
+{
+    auto target = processor.getMidiMapper().getLearnTarget();
+
+    if (target == MidiMapper::LearnTarget::Prev)
+    {
+        prevLearnButton.setButtonText ("Listening...");
+        nextLearnButton.setEnabled (false);
+    }
+    else if (target == MidiMapper::LearnTarget::Next)
+    {
+        nextLearnButton.setButtonText ("Listening...");
+        prevLearnButton.setEnabled (false);
+    }
+    else
+    {
+        prevLearnButton.setButtonText ("Learn");
+        prevLearnButton.setEnabled (true);
+        nextLearnButton.setButtonText ("Learn");
+        nextLearnButton.setEnabled (true);
+    }
+}
+
 void SettingsOverlay::paint (juce::Graphics& g)
 {
     g.fillAll (DarkLookAndFeel::bgDark.withAlpha (0.95f));
@@ -188,12 +254,22 @@ void SettingsOverlay::resized()
     area.removeFromTop (10);
 
     prevCCLabel.setBounds (area.removeFromTop (22));
-    prevCCBox.setBounds (area.removeFromTop (28).withWidth (200));
+    {
+        auto row = area.removeFromTop (28);
+        prevCCBox.setBounds (row.removeFromLeft (200));
+        row.removeFromLeft (8);
+        prevLearnButton.setBounds (row.removeFromLeft (90));
+    }
 
     area.removeFromTop (10);
 
     nextCCLabel.setBounds (area.removeFromTop (22));
-    nextCCBox.setBounds (area.removeFromTop (28).withWidth (200));
+    {
+        auto row = area.removeFromTop (28);
+        nextCCBox.setBounds (row.removeFromLeft (200));
+        row.removeFromLeft (8);
+        nextLearnButton.setBounds (row.removeFromLeft (90));
+    }
 
     area.removeFromTop (20);
     savePresetButton.setBounds (area.removeFromTop (32).withWidth (160));

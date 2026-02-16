@@ -89,6 +89,10 @@ void MPSDrumMachineProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         auto msg = metadata.getMessage();
 
+        // Check for MIDI learn (consumes the message if learning)
+        if (midiMapper.processForLearn (msg))
+            continue;
+
         // Check for navigation MIDI
         auto navAction = midiMapper.processForNavigation (msg);
         if (navAction == MidiMapper::NavAction::Next)

@@ -65,6 +65,58 @@ void MidiMapper::setNextCCNumber (int cc)
     nextCCNumber = cc;
 }
 
+void MidiMapper::startLearn (LearnTarget target)
+{
+    learnTarget.store (static_cast<int> (target));
+}
+
+void MidiMapper::cancelLearn()
+{
+    learnTarget.store (0);
+}
+
+bool MidiMapper::isLearning() const
+{
+    return learnTarget.load() != 0;
+}
+
+MidiMapper::LearnTarget MidiMapper::getLearnTarget() const
+{
+    return static_cast<LearnTarget> (learnTarget.load());
+}
+
+bool MidiMapper::processForLearn (const juce::MidiMessage& msg)
+{
+    int target = learnTarget.load();
+    if (target == 0)
+        return false;
+
+    if (! msg.isController())
+        return false;
+
+    int value = msg.getControllerValue();
+    if (value == 0)
+        return false;
+
+    int cc = msg.getControllerNumber();
+    auto learned = static_cast<LearnTarget> (target);
+
+    if (learned == LearnTarget::Prev)
+        prevCCNumber = cc;
+    else if (learned == LearnTarget::Next)
+        nextCCNumber = cc;
+
+    learnTarget.store (0);
+
+    if (onLearnComplete)
+    {
+        auto callback = onLearnComplete;
+        juce::MessageManager::callAsync ([callback, learned, cc] { callback (learned, cc); });
+    }
+
+    return true;
+}
+
 MidiMapper::NavAction MidiMapper::processForNavigation (const juce::MidiMessage& msg) const
 {
     if (! msg.isController())
