@@ -27,6 +27,7 @@ private:
     juce::ComboBox prevCCBox;
     juce::Label nextCCLabel;
     juce::ComboBox nextCCBox;
+    juce::TextButton scanButton { "Scan Library" };
     juce::TextButton closeButton { "Close" };
     juce::TextButton savePresetButton { "Save Preset..." };
 };

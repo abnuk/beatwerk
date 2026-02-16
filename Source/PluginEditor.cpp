@@ -96,6 +96,28 @@ SettingsOverlay::SettingsOverlay (MPSDrumMachineProcessor& proc) : processor (pr
     };
     addAndMakeVisible (nextCCBox);
 
+    scanButton.onClick = [this]
+    {
+        scanButton.setEnabled (false);
+        scanButton.setButtonText ("Scanning...");
+
+        processor.getPresetManager().scanForPresets();
+
+        auto numPresets = processor.getPresetManager().getNumPresets();
+        scanButton.setButtonText ("Found " + juce::String (numPresets) + " presets");
+
+        auto* btn = &scanButton;
+        juce::Timer::callAfterDelay (2000, [safeThis = juce::Component::SafePointer<SettingsOverlay> (this), btn]
+        {
+            if (safeThis != nullptr)
+            {
+                btn->setButtonText ("Scan Library");
+                btn->setEnabled (true);
+            }
+        });
+    };
+    addAndMakeVisible (scanButton);
+
     closeButton.onClick = [this] { if (onClose) onClose(); };
     addAndMakeVisible (closeButton);
 
@@ -154,6 +176,9 @@ void SettingsOverlay::resized()
     browseButton.setBounds (pathRow.removeFromRight (90));
     pathRow.removeFromRight (5);
     libPathEditor.setBounds (pathRow);
+
+    area.removeFromTop (8);
+    scanButton.setBounds (area.removeFromTop (30).withWidth (140));
 
     area.removeFromTop (15);
 

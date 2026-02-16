@@ -297,7 +297,21 @@ juce::String AdgParser::findSamplePath (juce::XmlElement* element) const
     if (rawPath.isEmpty())
         return {};
 
-    return resolveRelativePath (rawPath, pathType);
+    auto resolved = resolveRelativePath (rawPath, pathType);
+
+    // If resolved path doesn't exist, try the absolute Path element as fallback
+    if (! juce::File (resolved).existsAsFile())
+    {
+        auto* pathEl = fileRef->getChildByName ("Path");
+        if (pathEl != nullptr)
+        {
+            juce::String absPath = pathEl->getStringAttribute ("Value");
+            if (absPath.isNotEmpty() && juce::File (absPath).existsAsFile())
+                return absPath;
+        }
+    }
+
+    return resolved;
 }
 
 juce::String AdgParser::resolveRelativePath (const juce::String& relativePath, int pathType) const
@@ -329,6 +343,24 @@ juce::String AdgParser::resolveRelativePath (const juce::String& relativePath, i
             return resolved.getFullPathName();
 
         return abletonLibraryPath.getChildFile (cleaned).getFullPathName();
+    }
+
+    // Type 6 = User Library relative (resolve from ~/Music/Ableton/User Library/)
+    if (pathType == 6)
+    {
+        auto userLib = juce::File::getSpecialLocation (juce::File::userMusicDirectory)
+                           .getChildFile ("Ableton/User Library");
+
+        if (userLib.isDirectory())
+        {
+            juce::String cleaned = relativePath;
+            if (cleaned.startsWith ("/"))
+                cleaned = cleaned.substring (1);
+
+            juce::File resolved = userLib.getChildFile (cleaned);
+            if (resolved.existsAsFile())
+                return resolved.getFullPathName();
+        }
     }
 
     // Types 0 (Missing) and 3 (Current Project): return raw path
