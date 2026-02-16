@@ -209,8 +209,22 @@ MPSDrumMachineEditor::MPSDrumMachineEditor (MPSDrumMachineProcessor& p)
     addAndMakeVisible (presetLabel);
     updatePresetLabel();
 
+    presetsViewButton.onClick = [this] { togglePresetView(); };
+    addAndMakeVisible (presetsViewButton);
+
     settingsButton.onClick = [this] { showSettings(); };
     addAndMakeVisible (settingsButton);
+
+    // Preset browser
+    presetListComponent = std::make_unique<PresetListComponent> (processorRef.getPresetManager());
+    presetListComponent->setVisible (false);
+    presetListComponent->onPresetSelected = [this] (int index)
+    {
+        processorRef.getPresetManager().loadPreset (index);
+        updatePresetLabel();
+        refreshPads();
+    };
+    addAndMakeVisible (presetListComponent.get());
 
     // Create pad components
     for (auto& padInfo : MidiMapper::getAllPads())
@@ -248,6 +262,8 @@ MPSDrumMachineEditor::MPSDrumMachineEditor (MPSDrumMachineProcessor& p)
         {
             updatePresetLabel();
             refreshPads();
+            if (presetListComponent != nullptr)
+                presetListComponent->setActivePreset (processorRef.getPresetManager().getCurrentPresetIndex());
         });
     };
 
@@ -286,23 +302,35 @@ void MPSDrumMachineEditor::resized()
     topBar.removeFromLeft (5);
     nextButton.setBounds (topBar.removeFromLeft (36));
     settingsButton.setBounds (topBar.removeFromRight (90));
+    topBar.removeFromRight (5);
+    presetsViewButton.setBounds (topBar.removeFromRight (90));
     topBar.removeFromRight (10);
     presetLabel.setBounds (topBar);
 
-    // Pad grid: 4 columns x 6 rows
+    // Content area
     area.reduce (15, 10);
-    int cols = 4;
-    int rows = 6;
-    int padWidth = area.getWidth() / cols;
-    int padHeight = area.getHeight() / rows;
 
-    for (int i = 0; i < padComponents.size(); ++i)
+    if (showingPresetList)
     {
-        int row = i / cols;
-        int col = i % cols;
-        padComponents[i]->setBounds (area.getX() + col * padWidth,
-                                     area.getY() + row * padHeight,
-                                     padWidth, padHeight);
+        if (presetListComponent != nullptr)
+            presetListComponent->setBounds (area);
+    }
+    else
+    {
+        // Pad grid: 4 columns x 6 rows
+        int cols = 4;
+        int rows = 6;
+        int padWidth = area.getWidth() / cols;
+        int padHeight = area.getHeight() / rows;
+
+        for (int i = 0; i < padComponents.size(); ++i)
+        {
+            int row = i / cols;
+            int col = i % cols;
+            padComponents[i]->setBounds (area.getX() + col * padWidth,
+                                         area.getY() + row * padHeight,
+                                         padWidth, padHeight);
+        }
     }
 }
 
@@ -331,6 +359,37 @@ void MPSDrumMachineEditor::updatePresetLabel()
         else
             presetLabel.setText ("MPS Drum Machine", juce::dontSendNotification);
     }
+}
+
+void MPSDrumMachineEditor::togglePresetView()
+{
+    showingPresetList = ! showingPresetList;
+
+    if (showingPresetList)
+    {
+        presetsViewButton.setButtonText ("Pads");
+
+        for (auto* pad : padComponents)
+            pad->setVisible (false);
+
+        if (presetListComponent != nullptr)
+        {
+            presetListComponent->refreshPresetList();
+            presetListComponent->setVisible (true);
+        }
+    }
+    else
+    {
+        presetsViewButton.setButtonText ("Presets");
+
+        if (presetListComponent != nullptr)
+            presetListComponent->setVisible (false);
+
+        for (auto* pad : padComponents)
+            pad->setVisible (true);
+    }
+
+    resized();
 }
 
 void MPSDrumMachineEditor::showSettings()

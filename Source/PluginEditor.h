@@ -3,6 +3,7 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include "PluginProcessor.h"
 #include "PadComponent.h"
+#include "PresetListComponent.h"
 #include "LookAndFeel.h"
 
 class SettingsOverlay : public juce::Component
@@ -50,10 +51,16 @@ private:
     juce::TextButton prevButton { "<" };
     juce::TextButton nextButton { ">" };
     juce::Label presetLabel;
+    juce::TextButton presetsViewButton { "Presets" };
     juce::TextButton settingsButton { "Settings" };
 
     // Pad grid
     juce::OwnedArray<PadComponent> padComponents;
+
+    // Preset browser
+    std::unique_ptr<PresetListComponent> presetListComponent;
+    bool showingPresetList = false;
+    void togglePresetView();
 
     // Settings overlay
     std::unique_ptr<SettingsOverlay> settingsOverlay;

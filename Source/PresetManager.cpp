@@ -51,6 +51,11 @@ void PresetManager::scanForPresets()
         }
     }
 
+    std::sort (presets.begin(), presets.end(), [] (const PresetEntry& a, const PresetEntry& b)
+    {
+        return a.name.compareIgnoreCase (b.name) < 0;
+    });
+
     logPM ("scanForPresets: total presets found = " + std::to_string (presets.size()));
 }
 
