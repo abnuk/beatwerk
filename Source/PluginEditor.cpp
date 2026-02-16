@@ -70,18 +70,31 @@ SettingsOverlay::SettingsOverlay (MPSDrumMachineProcessor& proc) : processor (pr
     };
     addAndMakeVisible (navChannelBox);
 
-    navCCLabel.setText ("Nav CC Number:", juce::dontSendNotification);
-    navCCLabel.setColour (juce::Label::textColourId, DarkLookAndFeel::textDim);
-    addAndMakeVisible (navCCLabel);
+    prevCCLabel.setText ("Prev CC Number:", juce::dontSendNotification);
+    prevCCLabel.setColour (juce::Label::textColourId, DarkLookAndFeel::textDim);
+    addAndMakeVisible (prevCCLabel);
 
     for (int i = 0; i < 128; ++i)
-        navCCBox.addItem ("CC " + juce::String (i), i + 1);
-    navCCBox.setSelectedId (processor.getMidiMapper().getNavCCNumber() + 1);
-    navCCBox.onChange = [this]
+        prevCCBox.addItem ("CC " + juce::String (i), i + 1);
+    prevCCBox.setSelectedId (processor.getMidiMapper().getPrevCCNumber() + 1);
+    prevCCBox.onChange = [this]
     {
-        processor.getMidiMapper().setNavCCNumber (navCCBox.getSelectedId() - 1);
+        processor.getMidiMapper().setPrevCCNumber (prevCCBox.getSelectedId() - 1);
     };
-    addAndMakeVisible (navCCBox);
+    addAndMakeVisible (prevCCBox);
+
+    nextCCLabel.setText ("Next CC Number:", juce::dontSendNotification);
+    nextCCLabel.setColour (juce::Label::textColourId, DarkLookAndFeel::textDim);
+    addAndMakeVisible (nextCCLabel);
+
+    for (int i = 0; i < 128; ++i)
+        nextCCBox.addItem ("CC " + juce::String (i), i + 1);
+    nextCCBox.setSelectedId (processor.getMidiMapper().getNextCCNumber() + 1);
+    nextCCBox.onChange = [this]
+    {
+        processor.getMidiMapper().setNextCCNumber (nextCCBox.getSelectedId() - 1);
+    };
+    addAndMakeVisible (nextCCBox);
 
     closeButton.onClick = [this] { if (onClose) onClose(); };
     addAndMakeVisible (closeButton);
@@ -149,8 +162,13 @@ void SettingsOverlay::resized()
 
     area.removeFromTop (10);
 
-    navCCLabel.setBounds (area.removeFromTop (22));
-    navCCBox.setBounds (area.removeFromTop (28).withWidth (200));
+    prevCCLabel.setBounds (area.removeFromTop (22));
+    prevCCBox.setBounds (area.removeFromTop (28).withWidth (200));
+
+    area.removeFromTop (10);
+
+    nextCCLabel.setBounds (area.removeFromTop (22));
+    nextCCBox.setBounds (area.removeFromTop (28).withWidth (200));
 
     area.removeFromTop (20);
     savePresetButton.setBounds (area.removeFromTop (32).withWidth (160));

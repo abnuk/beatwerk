@@ -22,8 +22,10 @@ private:
     juce::TextButton browseButton { "Browse..." };
     juce::Label navChannelLabel;
     juce::ComboBox navChannelBox;
-    juce::Label navCCLabel;
-    juce::ComboBox navCCBox;
+    juce::Label prevCCLabel;
+    juce::ComboBox prevCCBox;
+    juce::Label nextCCLabel;
+    juce::ComboBox nextCCBox;
     juce::TextButton closeButton { "Close" };
     juce::TextButton savePresetButton { "Save Preset..." };
 };

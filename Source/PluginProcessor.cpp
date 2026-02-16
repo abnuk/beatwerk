@@ -132,7 +132,8 @@ void MPSDrumMachineProcessor::getStateInformation (juce::MemoryBlock& destData)
 
     // Save navigation MIDI settings
     state->setAttribute ("navChannel", midiMapper.getNavChannel());
-    state->setAttribute ("navCC", midiMapper.getNavCCNumber());
+    state->setAttribute ("prevCC", midiMapper.getPrevCCNumber());
+    state->setAttribute ("nextCC", midiMapper.getNextCCNumber());
 
     // Save current preset index
     state->setAttribute ("presetIndex", presetManager.getCurrentPresetIndex());
@@ -166,7 +167,9 @@ void MPSDrumMachineProcessor::setStateInformation (const void* data, int sizeInB
 
     // Restore navigation settings
     midiMapper.setNavChannel (state->getIntAttribute ("navChannel", 0));
-    midiMapper.setNavCCNumber (state->getIntAttribute ("navCC", 1));
+    midiMapper.setPrevCCNumber (state->getIntAttribute ("prevCC",
+        state->getIntAttribute ("navCC", 1)));
+    midiMapper.setNextCCNumber (state->getIntAttribute ("nextCC", 2));
 
     // Restore pad mappings
     auto* padsEl = state->getChildByName ("PadMappings");

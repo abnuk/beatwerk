@@ -22,9 +22,11 @@ public:
 
     // Navigation MIDI config
     void setNavChannel (int channel);   // 1-16, 0 = any
-    void setNavCCNumber (int cc);
+    void setPrevCCNumber (int cc);
+    void setNextCCNumber (int cc);
     int getNavChannel() const { return navChannel; }
-    int getNavCCNumber() const { return navCCNumber; }
+    int getPrevCCNumber() const { return prevCCNumber; }
+    int getNextCCNumber() const { return nextCCNumber; }
 
     enum class NavAction { None, Next, Previous };
 
@@ -32,8 +34,9 @@ public:
     bool isDrumTrigger (const juce::MidiMessage& msg) const;
 
 private:
-    int navChannel = 0;   // 0 = any channel
-    int navCCNumber = 1;  // CC#1 by default
+    int navChannel = 0;     // 0 = any channel
+    int prevCCNumber = 1;   // CC#1 for previous preset
+    int nextCCNumber = 2;   // CC#2 for next preset
 
     static const std::array<PadInfo, 24> pads;
 };

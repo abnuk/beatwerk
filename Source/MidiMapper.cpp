@@ -55,9 +55,14 @@ void MidiMapper::setNavChannel (int channel)
     navChannel = channel;
 }
 
-void MidiMapper::setNavCCNumber (int cc)
+void MidiMapper::setPrevCCNumber (int cc)
 {
-    navCCNumber = cc;
+    prevCCNumber = cc;
+}
+
+void MidiMapper::setNextCCNumber (int cc)
+{
+    nextCCNumber = cc;
 }
 
 MidiMapper::NavAction MidiMapper::processForNavigation (const juce::MidiMessage& msg) const
@@ -68,14 +73,17 @@ MidiMapper::NavAction MidiMapper::processForNavigation (const juce::MidiMessage&
     if (navChannel > 0 && msg.getChannel() != navChannel)
         return NavAction::None;
 
-    if (msg.getControllerNumber() != navCCNumber)
+    int cc = msg.getControllerNumber();
+    int value = msg.getControllerValue();
+
+    if (value == 0)
         return NavAction::None;
 
-    int value = msg.getControllerValue();
-    if (value >= 64)
-        return NavAction::Next;
-    if (value > 0 && value < 64)
+    if (cc == prevCCNumber)
         return NavAction::Previous;
+
+    if (cc == nextCCNumber)
+        return NavAction::Next;
 
     return NavAction::None;
 }
