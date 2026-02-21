@@ -16,7 +16,9 @@ juce_add_plugin(Beatwerk
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
-    COPY_PLUGIN_AFTER_BUILD TRUE)
+    COPY_PLUGIN_AFTER_BUILD TRUE
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon_big.png"
+    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon_small.png")
 
 target_sources(Beatwerk
     PRIVATE
