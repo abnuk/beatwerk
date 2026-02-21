@@ -34,7 +34,7 @@ jobs:
   build-macos:
     name: macOS installer
     needs: resolve-version
-    runs-on: macos-13
+    runs-on: macos-15
     env:
       VERSION: ${{ needs.resolve-version.outputs.version }}
     steps:
