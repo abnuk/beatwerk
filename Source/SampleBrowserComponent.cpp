@@ -23,20 +23,29 @@ public:
 
         g.setColour (DarkLookAndFeel::textBright);
         g.setFont (juce::FontOptions (12.0f));
-        g.drawText (treeItem.getFile().getFileName(),
+        g.drawText (treeItem.getDisplayName(),
                     juce::Rectangle<int> (4, 0, getWidth() - 8, getHeight()),
                     juce::Justification::centredLeft, true);
     }
 
-    void mouseDown (const juce::MouseEvent&) override
+    void mouseDown (const juce::MouseEvent& e) override
     {
         treeItem.setSelected (true, true);
         nativeDragStarted = false;
+
+        if (e.mods.isPopupMenu())
+        {
+            popupTriggered = true;
+            owner.showItemContextMenu (treeItem.getFile(), e.getScreenPosition());
+            return;
+        }
+
+        popupTriggered = false;
     }
 
     void mouseDrag (const juce::MouseEvent& e) override
     {
-        if (nativeDragStarted)
+        if (nativeDragStarted || popupTriggered)
             return;
 
         if (e.getDistanceFromDragStart() < 5)
@@ -52,24 +61,27 @@ public:
 
     void mouseUp (const juce::MouseEvent&) override
     {
-        if (! nativeDragStarted)
+        if (! nativeDragStarted && ! popupTriggered)
             owner.getSampleEngine().previewSample (treeItem.getFile());
 
         nativeDragStarted = false;
+        popupTriggered = false;
     }
 
 private:
     SampleTreeItem& treeItem;
     SampleBrowserComponent& owner;
     bool nativeDragStarted = false;
+    bool popupTriggered = false;
 };
 
 //==============================================================================
 // SampleTreeItem
 //==============================================================================
 
-SampleTreeItem::SampleTreeItem (const juce::File& f, SampleBrowserComponent& browser)
-    : file (f), owner (browser)
+SampleTreeItem::SampleTreeItem (const juce::File& f, SampleBrowserComponent& browser,
+                                const juce::String& customDisplayName)
+    : file (f), owner (browser), displayName (customDisplayName)
 {
 }
 
@@ -80,7 +92,18 @@ bool SampleTreeItem::mightContainSubItems()
 
 juce::String SampleTreeItem::getUniqueName() const
 {
+    if (displayName.isNotEmpty())
+        return file.getFullPathName() + "|" + displayName;
+
     return file.getFullPathName();
+}
+
+juce::String SampleTreeItem::getDisplayName() const
+{
+    if (displayName.isNotEmpty())
+        return displayName;
+
+    return file.getFileName();
 }
 
 void SampleTreeItem::paintItem (juce::Graphics& g, int width, int height)
@@ -115,7 +138,7 @@ void SampleTreeItem::paintItem (juce::Graphics& g, int width, int height)
         g.setFont (juce::FontOptions (12.0f));
     }
 
-    g.drawText (file.getFileName(), textArea, juce::Justification::centredLeft, true);
+    g.drawText (getDisplayName(), textArea, juce::Justification::centredLeft, true);
 }
 
 void SampleTreeItem::itemOpennessChanged (bool isNowOpen)
@@ -124,8 +147,14 @@ void SampleTreeItem::itemOpennessChanged (bool isNowOpen)
         scanDirectory();
 }
 
-void SampleTreeItem::itemClicked (const juce::MouseEvent&)
+void SampleTreeItem::itemClicked (const juce::MouseEvent& e)
 {
+    if (e.mods.isPopupMenu())
+    {
+        owner.showItemContextMenu (file, e.getScreenPosition());
+        return;
+    }
+
     if (! file.isDirectory() && isAudioFile (file))
         owner.getSampleEngine().previewSample (file);
 }
@@ -195,6 +224,28 @@ SampleBrowserComponent::SampleBrowserComponent (SampleEngine& engine)
     treeView.setMultiSelectEnabled (false);
     addAndMakeVisible (treeView);
 
+    searchField.setColour (juce::TextEditor::backgroundColourId, DarkLookAndFeel::bgDark);
+    searchField.setColour (juce::TextEditor::textColourId, DarkLookAndFeel::textBright);
+    searchField.setColour (juce::TextEditor::outlineColourId, DarkLookAndFeel::bgLight);
+    searchField.setColour (juce::TextEditor::focusedOutlineColourId, DarkLookAndFeel::accent);
+    searchField.setTextToShowWhenEmpty ("Search...", DarkLookAndFeel::textDim);
+    searchField.setFont (juce::FontOptions (12.0f));
+    searchField.onTextChange = [this] { performSearch(); };
+    searchField.onEscapeKey = [this]
+    {
+        searchField.clear();
+        performSearch();
+    };
+    addAndMakeVisible (searchField);
+
+    clearSearchButton.onClick = [this]
+    {
+        searchField.clear();
+        performSearch();
+    };
+    clearSearchButton.setVisible (false);
+    addAndMakeVisible (clearSearchButton);
+
     refreshButton.onClick = [this] { refresh(); };
     addAndMakeVisible (refreshButton);
 }
@@ -211,6 +262,12 @@ void SampleBrowserComponent::resized()
     auto headerArea = area.removeFromTop (30);
     headerArea.reduce (4, 2);
     refreshButton.setBounds (headerArea.removeFromRight (70));
+
+    auto searchArea = area.removeFromTop (26);
+    searchArea.reduce (4, 2);
+    if (clearSearchButton.isVisible())
+        clearSearchButton.setBounds (searchArea.removeFromRight (22));
+    searchField.setBounds (searchArea);
 
     area.removeFromTop (2);
     treeView.setBounds (area);
@@ -276,6 +333,12 @@ void SampleBrowserComponent::revealFile (const juce::File& file)
 {
     if (rootItem == nullptr || ! file.existsAsFile())
         return;
+
+    if (searchField.getText().trim().isNotEmpty())
+    {
+        searchField.clear();
+        refresh();
+    }
 
     auto relativePath = file.getRelativePathFrom (samplesDir);
     juce::StringArray pathParts;
@@ -464,4 +527,211 @@ void SampleBrowserComponent::updateDropTargetHighlight (int x, int y)
         highlightedDropTarget = newTarget;
         treeView.repaint();
     }
+}
+
+//==============================================================================
+// Search
+//==============================================================================
+
+void SampleBrowserComponent::performSearch()
+{
+    auto text = searchField.getText().trim();
+    bool hasSearch = text.isNotEmpty();
+
+    clearSearchButton.setVisible (hasSearch);
+    resized();
+
+    if (! hasSearch)
+    {
+        refresh();
+        return;
+    }
+
+    treeView.setRootItem (nullptr);
+    rootItem.reset();
+
+    if (! samplesDir.isDirectory())
+        return;
+
+    rootItem = std::make_unique<SampleTreeItem> (samplesDir, *this);
+    rootItem->markAsScanned();
+    treeView.setRootItem (rootItem.get());
+    treeView.setRootItemVisible (false);
+    rootItem->setOpen (true);
+
+    auto allFiles = samplesDir.findChildFiles (juce::File::findFiles, true);
+    auto lowerText = text.toLowerCase();
+
+    for (auto& f : allFiles)
+    {
+        if (! SampleTreeItem::isAudioFile (f))
+            continue;
+
+        if (f.getFileNameWithoutExtension().toLowerCase().contains (lowerText))
+            rootItem->addSubItem (new SampleTreeItem (f, *this));
+    }
+}
+
+void SampleBrowserComponent::refreshAfterChange()
+{
+    if (searchField.getText().trim().isNotEmpty())
+        performSearch();
+    else
+        refresh();
+}
+
+//==============================================================================
+// Context menu, delete, move
+//==============================================================================
+
+void SampleBrowserComponent::showItemContextMenu (const juce::File& file,
+                                                    juce::Point<int> screenPos)
+{
+    juce::PopupMenu menu;
+
+    const int deleteId = 1;
+    const int revealId = 2;
+    const int moveIdBase = 100;
+
+    menu.addItem (deleteId, "Delete");
+
+    auto targetFolders = collectTargetFolders (file);
+
+    if (! targetFolders.isEmpty())
+    {
+        juce::PopupMenu moveMenu;
+
+        for (int i = 0; i < targetFolders.size(); ++i)
+        {
+            auto label = targetFolders[i] == samplesDir
+                             ? juce::String ("Samples (root)")
+                             : targetFolders[i].getRelativePathFrom (samplesDir);
+            moveMenu.addItem (moveIdBase + i, label);
+        }
+
+        menu.addSubMenu ("Move to", moveMenu);
+    }
+
+    menu.addSeparator();
+    menu.addItem (revealId, "Reveal in Finder");
+
+    auto safeThis = juce::Component::SafePointer<SampleBrowserComponent> (this);
+
+    menu.showMenuAsync (
+        juce::PopupMenu::Options().withTargetScreenArea (
+            juce::Rectangle<int> (screenPos.x, screenPos.y, 1, 1)),
+        [safeThis, file, targetFolders] (int result)
+        {
+            if (safeThis == nullptr || result == 0)
+                return;
+
+            if (result == 1)
+                safeThis->deleteItem (file);
+            else if (result == 2)
+                file.revealToUser();
+            else if (result >= 100 && result < 100 + targetFolders.size())
+                safeThis->moveItem (file, targetFolders[result - 100]);
+        });
+}
+
+void SampleBrowserComponent::deleteItem (const juce::File& file)
+{
+    auto name = file.getFileName();
+    bool isDir = file.isDirectory();
+
+    auto msg = isDir
+                   ? "Delete the folder \"" + name + "\" and all its contents?"
+                   : "Delete \"" + name + "\"?";
+
+    auto* alert = new juce::AlertWindow ("Confirm Delete", msg,
+                                          juce::MessageBoxIconType::WarningIcon);
+    alert->addButton ("Delete", 1);
+    alert->addButton ("Cancel", 0);
+
+    auto safeThis = juce::Component::SafePointer<SampleBrowserComponent> (this);
+
+    alert->enterModalState (true, juce::ModalCallbackFunction::create (
+        [safeThis, file, isDir, alert] (int result)
+        {
+            if (result == 1)
+            {
+                if (isDir)
+                    file.deleteRecursively();
+                else
+                    file.deleteFile();
+
+                if (safeThis != nullptr)
+                    safeThis->refreshAfterChange();
+            }
+
+            delete alert;
+        }), false);
+}
+
+void SampleBrowserComponent::moveItem (const juce::File& source, const juce::File& targetDir)
+{
+    auto dest = targetDir.getChildFile (source.getFileName());
+
+    if (dest.exists())
+    {
+        auto* alert = new juce::AlertWindow (
+            "Already Exists",
+            "\"" + source.getFileName() + "\" already exists in the target folder. Overwrite?",
+            juce::MessageBoxIconType::WarningIcon);
+        alert->addButton ("Overwrite", 1);
+        alert->addButton ("Cancel", 0);
+
+        auto safeThis = juce::Component::SafePointer<SampleBrowserComponent> (this);
+
+        alert->enterModalState (true, juce::ModalCallbackFunction::create (
+            [safeThis, source, dest, alert] (int result)
+            {
+                if (result == 1 && safeThis != nullptr)
+                {
+                    if (dest.isDirectory())
+                        dest.deleteRecursively();
+                    else
+                        dest.deleteFile();
+
+                    source.moveFileTo (dest);
+                    safeThis->refreshAfterChange();
+                }
+
+                delete alert;
+            }), false);
+        return;
+    }
+
+    source.moveFileTo (dest);
+    refreshAfterChange();
+}
+
+juce::Array<juce::File> SampleBrowserComponent::collectTargetFolders (
+    const juce::File& excludeItem) const
+{
+    juce::Array<juce::File> result;
+
+    auto currentDir = excludeItem.isDirectory()
+                          ? excludeItem
+                          : excludeItem.getParentDirectory();
+
+    if (samplesDir != currentDir)
+        result.add (samplesDir);
+
+    auto dirs = samplesDir.findChildFiles (
+        juce::File::findDirectories | juce::File::ignoreHiddenFiles, true);
+    dirs.sort();
+
+    for (auto& d : dirs)
+    {
+        if (d == currentDir)
+            continue;
+
+        if (excludeItem.isDirectory() && d.isAChildOf (excludeItem))
+            continue;
+
+        result.add (d);
+    }
+
+    return result;
 }

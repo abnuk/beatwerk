@@ -8,7 +8,8 @@ class SampleBrowserComponent;
 class SampleTreeItem : public juce::TreeViewItem
 {
 public:
-    SampleTreeItem (const juce::File& f, SampleBrowserComponent& browser);
+    SampleTreeItem (const juce::File& f, SampleBrowserComponent& browser,
+                    const juce::String& customDisplayName = {});
 
     bool mightContainSubItems() override;
     juce::String getUniqueName() const override;
@@ -21,11 +22,14 @@ public:
     bool canBeSelected() const override { return true; }
 
     const juce::File& getFile() const { return file; }
+    juce::String getDisplayName() const;
     static bool isAudioFile (const juce::File& f);
+    void markAsScanned() { hasScanned = true; }
 
 private:
     juce::File file;
     SampleBrowserComponent& owner;
+    juce::String displayName;
     bool hasScanned = false;
 
     void scanDirectory();
@@ -61,6 +65,8 @@ public:
     juce::File getSamplesDirectory() const { return samplesDir; }
     juce::File getHighlightedDropTarget() const { return highlightedDropTarget; }
 
+    void showItemContextMenu (const juce::File& file, juce::Point<int> screenPos);
+
     static const juce::String dragSourceId;
 
 private:
@@ -70,6 +76,8 @@ private:
     SampleTreeView treeView;
     std::unique_ptr<SampleTreeItem> rootItem;
 
+    juce::TextEditor searchField;
+    juce::TextButton clearSearchButton { "x" };
     juce::TextButton refreshButton { "Refresh" };
 
     bool fileDragActive = false;
@@ -77,4 +85,9 @@ private:
 
     juce::File getDropTargetDirectory (int x, int y) const;
     void updateDropTargetHighlight (int x, int y);
+    void performSearch();
+    void refreshAfterChange();
+    void deleteItem (const juce::File& file);
+    void moveItem (const juce::File& source, const juce::File& targetDir);
+    juce::Array<juce::File> collectTargetFolders (const juce::File& excludeItem) const;
 };
