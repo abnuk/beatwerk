@@ -111,13 +111,26 @@ echo "[3/5] Creating component packages..."
 rm -rf "${STAGING_DIR}" "${OUTPUT_DIR}"
 mkdir -p "${STAGING_DIR}" "${OUTPUT_DIR}"
 
+# Helper: generate a component plist that disables bundle relocation.
+# Without this, pkgbuild auto-detects existing bundles (e.g. in the build dir)
+# and the installer "upgrades in place" instead of installing to the target path.
+make_no_relocate_plist() {
+    local stage_root="$1"
+    local plist="${STAGING_DIR}/component.plist"
+    pkgbuild --analyze --root "${stage_root}" "${plist}" > /dev/null 2>&1
+    /usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "${plist}" 2>/dev/null
+    echo "${plist}"
+}
+
 # --- Standalone ---
 STANDALONE_STAGE="${STAGING_DIR}/standalone"
 mkdir -p "${STANDALONE_STAGE}/Applications"
 cp -R "$STANDALONE_SRC" "${STANDALONE_STAGE}/Applications/"
 
+STANDALONE_PLIST=$(make_no_relocate_plist "${STANDALONE_STAGE}")
 pkgbuild \
     --root "${STANDALONE_STAGE}" \
+    --component-plist "${STANDALONE_PLIST}" \
     --identifier "${IDENTIFIER_BASE}.standalone" \
     --version "${VERSION}" \
     --install-location "/" \
@@ -131,8 +144,10 @@ VST3_STAGE="${STAGING_DIR}/vst3"
 mkdir -p "${VST3_STAGE}/Library/Audio/Plug-Ins/VST3"
 cp -R "$VST3_SRC" "${VST3_STAGE}/Library/Audio/Plug-Ins/VST3/"
 
+VST3_PLIST=$(make_no_relocate_plist "${VST3_STAGE}")
 pkgbuild \
     --root "${VST3_STAGE}" \
+    --component-plist "${VST3_PLIST}" \
     --identifier "${IDENTIFIER_BASE}.vst3" \
     --version "${VERSION}" \
     --install-location "/" \
@@ -146,8 +161,10 @@ AU_STAGE="${STAGING_DIR}/au"
 mkdir -p "${AU_STAGE}/Library/Audio/Plug-Ins/Components"
 cp -R "$AU_SRC" "${AU_STAGE}/Library/Audio/Plug-Ins/Components/"
 
+AU_PLIST=$(make_no_relocate_plist "${AU_STAGE}")
 pkgbuild \
     --root "${AU_STAGE}" \
+    --component-plist "${AU_PLIST}" \
     --identifier "${IDENTIFIER_BASE}.au" \
     --version "${VERSION}" \
     --install-location "/" \
