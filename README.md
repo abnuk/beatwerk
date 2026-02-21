@@ -1,23 +1,48 @@
 # Beatwerk
 
-A drum machine audio plugin that bridges **Ableton Live Drum Racks** with hardware MIDI controllers. Load `.adg` presets, trigger samples from your pads, rearrange kits with drag & drop, and navigate presets via MIDI — all from a dark-themed UI designed for live performance.
+A drum machine audio plugin for live performance. Import **Ableton Live Drum Racks** into a portable `.dkit` preset format, browse and assign samples with drag & drop, map pads to your hardware MIDI controller, and navigate presets via MIDI — all from a dark-themed UI designed for the stage.
 
 Built with [JUCE](https://juce.com/) and C++20. Available as **VST3**, **Audio Unit**, and **Standalone** application.
 
 ## Features
 
-### Ableton Drum Rack Integration
+### Ableton Live Import
 
-- Automatically detects Ableton Live installation and scans Core Library & User Library for Drum Rack presets (`.adg`)
-- Parses gzipped Ableton XML, extracts sample paths, and intelligently maps samples to pads using keyword matching (kick, snare, tom, hihat, crash, ride, etc.)
-- Supports relative path resolution for Core Library, User Library, and external sample references
+- Import Ableton Drum Rack presets (`.adg`) into the custom `.dkit` format
+- Samples are copied to a shared directory with preserved folder structure — no duplication across kits
+- Progress bar and detailed import summary (imported / skipped / errors)
+- Supports Core Library, User Library, and external sample references
+
+### Custom .dkit Preset Format
+
+- Portable JSON format with relative sample paths
+- Stores name, author, description, source, creation date, and per-pad sample assignments
+- Configurable samples and presets directories in Settings
+- Missing sample indicator: red pad background with exclamation badge when a referenced file is not found
+
+### Multi-Kit Electronic Drum Support
+
+- Built-in library of 100 electronic drum kit definitions from 15 manufacturers (Roland, Yamaha, Alesis, Pearl, and more)
+- Kit selector grouped by manufacturer in Settings
+- Pad grid dynamically adapts to the selected kit's pad count and column layout
+- Kit selection persists in plugin state with backward compatibility
 
 ### Pad Grid
 
-- Configurable pad layout with multiple electronic drum kit mappings supported
+- Dynamic pad layout driven by the selected electronic drum kit
 - Each pad displays: name, trigger type (Head / Rim / X-Stick / Open / Closed / etc.), MIDI note, and loaded sample name
+- Per-pad volume slider (0–200%) for boosting or cutting individual pad levels
 - Velocity-sensitive triggering with visual flash animation
 - Click a pad to preview the sample
+
+### Sample Browser
+
+- TreeView-based sidebar for browsing the samples directory
+- Click to audition, drag onto any pad to assign
+- Import samples from Finder with overwrite detection
+- Search field for filtering samples by name
+- Right-click context menu: delete, move to folder, reveal in Finder
+- Locate button on pads to reveal the assigned sample in the browser
 
 ### Drag & Drop
 
@@ -31,6 +56,12 @@ Built with [JUCE](https://juce.com/) and C++20. Available as **VST3**, **Audio U
 - Active preset highlighted with accent color
 - Click to load any preset instantly
 
+### Preset Management
+
+- Create new presets from the current kit ("+" button)
+- Rename and delete presets via right-click context menu
+- Pad mappings and volume settings are cleaned up automatically on delete
+
 ### MIDI Preset Navigation
 
 - Navigate presets with MIDI CC messages from your controller
@@ -41,12 +72,6 @@ Built with [JUCE](https://juce.com/) and C++20. Available as **VST3**, **Audio U
 
 - Click **Learn** next to Prev or Next CC in Settings
 - Send any CC from your controller — it's captured and assigned automatically
-
-### Preset Saving
-
-- Save customized kits as JSON presets
-- Stored in `~/Library/Application Support/Beatwerk/Presets/`
-- Saved presets appear alongside Ableton presets in the browser
 
 ### Sample Engine
 
@@ -59,7 +84,7 @@ Built with [JUCE](https://juce.com/) and C++20. Available as **VST3**, **Audio U
 
 ### macOS Installer
 
-Download `Beatwerk-1.0.0-macOS.pkg` from the [Releases](https://github.com/abnuk/beatwerk/releases) page and run it. You can choose which components to install:
+Download `Beatwerk-1.1.0-macOS.pkg` from the [Releases](https://github.com/abnuk/beatwerk/releases) page and run it. You can choose which components to install:
 
 | Component | Install Location |
 |---|---|
@@ -120,24 +145,27 @@ To sign the installer for distribution:
 
 ```
 beatwerk/
-├── CMakeLists.txt           # Build configuration
+├── CMakeLists.txt              # Build configuration
 ├── Source/
-│   ├── PluginProcessor.*    # Audio processing & state management
-│   ├── PluginEditor.*       # Main UI, settings overlay
-│   ├── SampleEngine.*       # Polyphonic sample playback
-│   ├── MidiMapper.*         # Pad layout, MIDI routing, MIDI Learn
-│   ├── AdgParser.*          # Ableton .adg file parser
-│   ├── PresetManager.*      # Preset scanning, loading, saving
-│   ├── PadComponent.*       # Pad UI with drag & drop
-│   ├── PadMappingManager.*  # Per-preset custom pad mappings
-│   ├── PresetListComponent.*# Preset browser with alphabet nav
-│   └── LookAndFeel.*        # Dark theme styling
+│   ├── PluginProcessor.*       # Audio processing & state management
+│   ├── PluginEditor.*          # Main UI, settings overlay
+│   ├── SampleEngine.*          # Polyphonic sample playback
+│   ├── MidiMapper.*            # Pad layout, MIDI routing, MIDI Learn
+│   ├── DrumKitLibrary.*        # 100 electronic drum kit definitions
+│   ├── AdgParser.*             # Ableton .adg file parser
+│   ├── AbletonImporter.*       # .adg → .dkit import with sample copying
+│   ├── PresetManager.*         # Preset scanning, loading, saving
+│   ├── PadComponent.*          # Pad UI with drag & drop and volume
+│   ├── PadMappingManager.*     # Per-preset custom pad mappings & volumes
+│   ├── PresetListComponent.*   # Preset browser with alphabet nav
+│   ├── SampleBrowserComponent.*# Sample browser with search & preview
+│   └── LookAndFeel.*           # Dark theme styling
 ├── installer/
-│   ├── create_installer.sh  # macOS .pkg builder
-│   ├── uninstall.sh         # Uninstall helper
-│   ├── distribution.xml     # Installer component definitions
-│   └── resources/           # Installer UI (welcome, readme)
-└── JUCE/                    # JUCE framework
+│   ├── create_installer.sh     # macOS .pkg builder
+│   ├── uninstall.sh            # Uninstall helper
+│   ├── distribution.xml        # Installer component definitions
+│   └── resources/              # Installer UI (welcome, readme)
+└── JUCE/                       # JUCE framework
 ```
 
 ## License
