@@ -223,3 +223,17 @@ bool SampleEngine::isSampleMissing (int midiNote) const
         return false;
     return slots[(size_t) midiNote].missing;
 }
+
+void SampleEngine::previewSample (const juce::File& file)
+{
+    stopPreview();
+    loadSample (kPreviewSlot, file);
+    noteOn (kPreviewSlot, 0.8f);
+}
+
+void SampleEngine::stopPreview()
+{
+    auto& slot = slots[(size_t) kPreviewSlot];
+    for (auto& voice : slot.voices)
+        voice.active.store (false);
+}

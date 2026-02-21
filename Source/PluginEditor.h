@@ -4,6 +4,7 @@
 #include "PluginProcessor.h"
 #include "PadComponent.h"
 #include "PresetListComponent.h"
+#include "SampleBrowserComponent.h"
 #include "LookAndFeel.h"
 
 class SettingsOverlay : public juce::Component
@@ -65,6 +66,10 @@ public:
     void refreshPads();
     void updatePresetLabel();
 
+    bool shouldDropFilesWhenDraggedExternally (
+        const juce::DragAndDropTarget::SourceDetails& details,
+        juce::StringArray& files, bool& canMoveFiles) override;
+
 private:
     MPSDrumMachineProcessor& processorRef;
     DarkLookAndFeel darkLnf;
@@ -72,10 +77,16 @@ private:
     juce::TextButton prevButton { "<" };
     juce::TextButton nextButton { ">" };
     juce::Label presetLabel;
+    juce::TextButton samplesViewButton { "Samples" };
     juce::TextButton presetsViewButton { "Presets" };
     juce::TextButton settingsButton { "Settings" };
 
     juce::OwnedArray<PadComponent> padComponents;
+
+    std::unique_ptr<SampleBrowserComponent> sampleBrowser;
+    bool showingSampleBrowser = false;
+    void toggleSampleBrowser();
+    void showSampleInBrowser (const juce::File& file);
 
     std::unique_ptr<PresetListComponent> presetListComponent;
     bool showingPresetList = false;

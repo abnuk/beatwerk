@@ -476,11 +476,19 @@ MPSDrumMachineEditor::MPSDrumMachineEditor (MPSDrumMachineProcessor& p)
     addAndMakeVisible (presetLabel);
     updatePresetLabel();
 
+    samplesViewButton.onClick = [this] { toggleSampleBrowser(); };
+    addAndMakeVisible (samplesViewButton);
+
     presetsViewButton.onClick = [this] { togglePresetView(); };
     addAndMakeVisible (presetsViewButton);
 
     settingsButton.onClick = [this] { showSettings(); };
     addAndMakeVisible (settingsButton);
+
+    sampleBrowser = std::make_unique<SampleBrowserComponent> (processorRef.getSampleEngine());
+    sampleBrowser->setSamplesDirectory (processorRef.getSamplesPath());
+    sampleBrowser->setVisible (false);
+    addAndMakeVisible (sampleBrowser.get());
 
     presetListComponent = std::make_unique<PresetListComponent> (processorRef.getPresetManager());
     presetListComponent->setVisible (false);
@@ -509,6 +517,10 @@ MPSDrumMachineEditor::MPSDrumMachineEditor (MPSDrumMachineProcessor& p)
         {
             processorRef.resetCurrentMappingToDefault();
             refreshPads();
+        };
+        pad->onLocateSample = [this] (const juce::File& file)
+        {
+            showSampleInBrowser (file);
         };
         addAndMakeVisible (pad);
         padComponents.add (pad);
@@ -574,8 +586,13 @@ void MPSDrumMachineEditor::resized()
     settingsButton.setBounds (topBar.removeFromRight (90));
     topBar.removeFromRight (5);
     presetsViewButton.setBounds (topBar.removeFromRight (90));
+    topBar.removeFromRight (5);
+    samplesViewButton.setBounds (topBar.removeFromRight (90));
     topBar.removeFromRight (10);
     presetLabel.setBounds (topBar);
+
+    if (showingSampleBrowser && sampleBrowser != nullptr)
+        sampleBrowser->setBounds (area.removeFromLeft (250));
 
     area.reduce (15, 10);
 
@@ -672,4 +689,57 @@ void MPSDrumMachineEditor::hideSettings()
 {
     settingsOverlay.reset();
     updatePresetLabel();
+}
+
+void MPSDrumMachineEditor::toggleSampleBrowser()
+{
+    showingSampleBrowser = ! showingSampleBrowser;
+
+    if (showingSampleBrowser)
+    {
+        if (sampleBrowser != nullptr)
+        {
+            sampleBrowser->setSamplesDirectory (processorRef.getSamplesPath());
+            sampleBrowser->setVisible (true);
+        }
+    }
+    else
+    {
+        if (sampleBrowser != nullptr)
+            sampleBrowser->setVisible (false);
+    }
+
+    resized();
+}
+
+void MPSDrumMachineEditor::showSampleInBrowser (const juce::File& file)
+{
+    if (! showingSampleBrowser)
+    {
+        showingSampleBrowser = true;
+        if (sampleBrowser != nullptr)
+        {
+            sampleBrowser->setSamplesDirectory (processorRef.getSamplesPath());
+            sampleBrowser->setVisible (true);
+        }
+        resized();
+    }
+
+    if (sampleBrowser != nullptr)
+        sampleBrowser->revealFile (file);
+}
+
+bool MPSDrumMachineEditor::shouldDropFilesWhenDraggedExternally (
+    const juce::DragAndDropTarget::SourceDetails& details,
+    juce::StringArray& files, bool& canMoveFiles)
+{
+    auto desc = details.description.toString();
+    if (desc.startsWith (SampleBrowserComponent::dragSourceId + ":"))
+    {
+        auto filePath = desc.fromFirstOccurrenceOf (":", false, false);
+        files.add (filePath);
+        canMoveFiles = false;
+        return true;
+    }
+    return false;
 }

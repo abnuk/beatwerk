@@ -1,6 +1,7 @@
 #include "PadComponent.h"
 
 const juce::String PadComponent::dragSourceId = "MPSPadDrag";
+const juce::String PadComponent::browserDragPrefix = "MPSSampleDrag:";
 
 PadComponent::PadComponent (const PadInfo& info, SampleEngine& engine)
     : padInfo (info), sampleEngine (engine)
@@ -88,6 +89,9 @@ void PadComponent::paint (juce::Graphics& g)
         g.setFont (juce::FontOptions (9.0f));
         g.drawText ("Drop sample here", textArea, juce::Justification::centred);
     }
+
+    if (sampleEngine.hasSample (padInfo.midiNote) && ! sampleMissing && ! isDragging)
+        drawLocateIcon (g);
 }
 
 void PadComponent::resized() {}
@@ -149,6 +153,15 @@ void PadComponent::mouseUp (const juce::MouseEvent& event)
     if (event.mods.isPopupMenu())
         return;
 
+    if (sampleEngine.hasSample (padInfo.midiNote) && onLocateSample)
+    {
+        if (getLocateIconBounds().contains (event.getPosition()))
+        {
+            onLocateSample (sampleEngine.getSampleFile (padInfo.midiNote));
+            return;
+        }
+    }
+
     if (sampleEngine.hasSample (padInfo.midiNote))
     {
         sampleEngine.noteOn (padInfo.midiNote, 0.7f);
@@ -204,11 +217,17 @@ void PadComponent::filesDropped (const juce::StringArray& files, int, int)
 bool PadComponent::isInterestedInDragSource (const SourceDetails& details)
 {
     auto desc = details.description.toString();
-    if (! desc.startsWith (dragSourceId + ":"))
-        return false;
 
-    int sourceNote = desc.fromLastOccurrenceOf (":", false, false).getIntValue();
-    return sourceNote != padInfo.midiNote;
+    if (desc.startsWith (dragSourceId + ":"))
+    {
+        int sourceNote = desc.fromLastOccurrenceOf (":", false, false).getIntValue();
+        return sourceNote != padInfo.midiNote;
+    }
+
+    if (desc.startsWith (browserDragPrefix))
+        return true;
+
+    return false;
 }
 
 void PadComponent::itemDragEnter (const SourceDetails& /*details*/)
@@ -228,15 +247,57 @@ void PadComponent::itemDropped (const SourceDetails& details)
     isDragOver = false;
 
     auto desc = details.description.toString();
-    int sourceNote = desc.fromLastOccurrenceOf (":", false, false).getIntValue();
 
-    if (sourceNote != padInfo.midiNote && onPadSwapped)
-        onPadSwapped (sourceNote, padInfo.midiNote);
-
-    if (auto* sourcePad = dynamic_cast<PadComponent*> (details.sourceComponent.get()))
+    if (desc.startsWith (browserDragPrefix))
     {
-        sourcePad->isDragging = false;
-        sourcePad->repaint();
+        auto filePath = desc.fromFirstOccurrenceOf (":", false, false);
+        juce::File file (filePath);
+
+        if (sampleEngine.hasSample (padInfo.midiNote))
+        {
+            auto midiNote = padInfo.midiNote;
+            auto safeThis = juce::Component::SafePointer<PadComponent> (this);
+
+            auto* alert = new juce::AlertWindow (
+                "Replace Sample",
+                "This pad already has a sample assigned.\nReplace with \"" + file.getFileName() + "\"?",
+                juce::MessageBoxIconType::QuestionIcon);
+            alert->addButton ("Replace", 1);
+            alert->addButton ("Cancel", 0);
+
+            alert->enterModalState (true, juce::ModalCallbackFunction::create (
+                [safeThis, file, midiNote, alert] (int result)
+                {
+                    if (result == 1 && safeThis != nullptr)
+                    {
+                        safeThis->sampleEngine.loadSample (midiNote, file);
+                        safeThis->updateSampleDisplay();
+                        if (safeThis->onSampleDropped)
+                            safeThis->onSampleDropped (midiNote, file);
+                    }
+                    delete alert;
+                }), false);
+        }
+        else
+        {
+            sampleEngine.loadSample (padInfo.midiNote, file);
+            updateSampleDisplay();
+            if (onSampleDropped)
+                onSampleDropped (padInfo.midiNote, file);
+        }
+    }
+    else if (desc.startsWith (dragSourceId + ":"))
+    {
+        int sourceNote = desc.fromLastOccurrenceOf (":", false, false).getIntValue();
+
+        if (sourceNote != padInfo.midiNote && onPadSwapped)
+            onPadSwapped (sourceNote, padInfo.midiNote);
+
+        if (auto* sourcePad = dynamic_cast<PadComponent*> (details.sourceComponent.get()))
+        {
+            sourcePad->isDragging = false;
+            sourcePad->repaint();
+        }
     }
 
     repaint();
@@ -265,4 +326,23 @@ void PadComponent::updateSampleDisplay()
     sampleName = sampleEngine.getSampleName (padInfo.midiNote);
     sampleMissing = sampleEngine.isSampleMissing (padInfo.midiNote);
     repaint();
+}
+
+juce::Rectangle<int> PadComponent::getLocateIconBounds() const
+{
+    auto bounds = getLocalBounds().reduced (5);
+    return { bounds.getRight() - 16, bounds.getBottom() - 16, 14, 14 };
+}
+
+void PadComponent::drawLocateIcon (juce::Graphics& g) const
+{
+    auto iconBounds = getLocateIconBounds().toFloat();
+
+    g.setColour (DarkLookAndFeel::textDim.withAlpha (0.5f));
+    float cx = iconBounds.getX() + 1.0f;
+    float cy = iconBounds.getY() + 1.0f;
+    float circleSize = 8.0f;
+    g.drawEllipse (cx, cy, circleSize, circleSize, 1.4f);
+    g.drawLine (cx + circleSize * 0.7f, cy + circleSize * 0.7f,
+                cx + circleSize + 2.0f, cy + circleSize + 2.0f, 1.4f);
 }

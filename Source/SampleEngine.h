@@ -28,6 +28,11 @@ public:
     void markSampleMissing (int midiNote, const juce::String& name);
     bool isSampleMissing (int midiNote) const;
 
+    void previewSample (const juce::File& file);
+    void stopPreview();
+
+    static constexpr int kPreviewSlot = 0;
+
 private:
     static constexpr int kMaxVoicesPerPad = 8;
     static constexpr int kTotalSlots = 128;

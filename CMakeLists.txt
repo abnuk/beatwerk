@@ -30,7 +30,8 @@ target_sources(MPSDrumMachine
         Source/PadMappingManager.cpp
         Source/PresetListComponent.cpp
         Source/LookAndFeel.cpp
-        Source/AbletonImporter.cpp)
+        Source/AbletonImporter.cpp
+        Source/SampleBrowserComponent.cpp)
 
 target_compile_definitions(MPSDrumMachine
     PUBLIC
